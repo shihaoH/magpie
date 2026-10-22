@@ -24654,6 +24654,7 @@ var NAV_SUBS = {
   usage: () => $("#usageTab"),
   library: () => $("#view-library .lib-tabs"),
   plugins: () => $("#view-plugins .lib-tabs"),
+  routing: () => $("#rtTabs"),
   settings: () => $("#setTabs"),
 };
 function navSubItems(v) { return [...(NAV_SUBS[v]?.()?.querySelectorAll(":scope > button") || [])].filter((b) => !b.hidden); }

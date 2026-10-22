@@ -2,6 +2,18 @@
    request (client.js). The same stage as the site's Model Routing, only
    played by the gateway's own trace. */
 .rt { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 12px; margin: 0 0 18px; }
+body.side-nav #rtTabs { display: none; }
+.rt-tabs { margin-bottom: 18px; max-width: 100%; flex-wrap: wrap; }
+.rt-tabs .opt.on { background: var(--card); box-shadow: 0 1px 3px #0001; }
+.rt-view-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.rt-view-tools .rt-inspect { border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; background: var(--card); }
+.rt-view-tools .rt-inspect[aria-expanded="true"] { background: var(--card-2); color: var(--fg); }
+.rt-accounts-page > .rt-col { margin-bottom: 24px; }
+.rt-inspector { position: fixed; z-index: 15; inset: auto 24px 24px auto; width: min(900px, calc(100vw - 48px)); max-height: calc(100dvh - 100px); display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 16px 64px #0003; overflow: hidden; }
+.rt-inspector-head { display: flex; align-items: center; gap: 16px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.rt-inspector-body { padding: 16px 18px; overflow: auto; overscroll-behavior: contain; min-height: 100px; }
+.rt-inspector .rt-cols { grid-template-columns: minmax(0, 1fr); }
+.rt-inspector .rt-ctx:empty::before { content: attr(data-empty); display: block; padding: 24px 0; color: var(--muted); text-align: center; }
 .rt-top { display: flex; flex-direction: column; gap: 3px; }
 .rt-what { font-size: 13px; color: var(--muted); }
 .rt-what b { color: var(--fg); font-weight: 600; }

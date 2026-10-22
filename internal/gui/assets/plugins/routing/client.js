@@ -23,6 +23,11 @@ magpie.plugin("routing", (ctx) => {
     <div class="row-head"><span class="label" data-t>Routing</span><span class="rt-livedot" aria-hidden="true"></span><span class="note" data-t>live, as the gateway decides</span><span class="grow"></span>
       <button class="text rt-newgroup" id="rtNewGroup" type="button" data-feature="groups" data-tt="Make a routing group of any models you like — agents pick it as one model"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg><span data-t>New group</span></button>
       <button class="text rt-mask" id="rtMask" aria-pressed="false" data-tt="Mask the accounts on this page — email addresses and account names — for a screenshot to share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 4.2A10.4 10.4 0 0 1 12 4c6.5 0 10 8 10 8a17.6 17.6 0 0 1-2.2 3.2M6.6 6.6C3.9 8.4 2 12 2 12s3.5 8 10 8a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20"/></svg><span data-t>Hide accounts</span></button></div>
+    <div class="segs rt-tabs" id="rtTabs" role="tablist" aria-label="Routing">
+      <button id="rtTabView" class="opt on" type="button" role="tab" aria-selected="true" data-rt-tab="view" data-t>Routing view</button>
+      <button id="rtTabAccounts" class="opt" type="button" role="tab" aria-selected="false" data-rt-tab="accounts" data-t>Accounts and keys</button>
+      <button id="rtTabGroups" class="opt" type="button" role="tab" aria-selected="false" data-rt-tab="groups" data-t>Routing groups</button>
+    </div>
     <section class="rt" id="rt"></section>
     <div class="rt-more" id="rtMore"></div>
 `,
@@ -1753,6 +1758,7 @@ function routingPage(part) {
     const i = go.indexOf(":"), kind = go.slice(0, i), id = CSS.escape(go.slice(i + 1));
     const row = kind === "group" ? gList.querySelector(`.rt-group[data-id="${id}"]`) : pList.querySelector(`.rt-pool[data-provider="${id}"]`);
     if (!row) return;
+    setRoutingTab(kind === "group" ? "groups" : "accounts");
     if (window.scrollOnPurpose?.(e)) row.scrollIntoView({ block: "center", behavior: still() ? "auto" : "smooth" });
     row.classList.remove("rt-found");
     void row.offsetWidth;
@@ -2228,9 +2234,11 @@ function routingPage(part) {
     }
     if (!matchesPurpose(r)) purpose = [];
     offline("");
-    window.show("routing");
+    if (!(await window.show("routing"))) return;
+    setRoutingTab("view");
     if (o.context) ctxFor = r.id;
     pick(r);
+    if (o.context) openInspector("context");
   };
 
   // what a call was for when it isn't a turn of the conversation, as
@@ -2623,7 +2631,7 @@ function routingPage(part) {
     const rs = listed();
     renderStats(rs);
     const all = allListed();
-    hist.hidden = !all.length && !day && !days.length && !purpose.length;
+    hist.hidden = false;
     const opts = purposeOptions([...all.map((r) => purposeOf(r.kind)), ...purpose]);
     const selected = opts.filter((o) => purpose.includes(o.v));
     purposeTools.hidden = opts.length < 2 && !purpose.length;
@@ -2668,7 +2676,7 @@ function routingPage(part) {
     reqNote.hidden = none;
     reqs.classList.toggle("none", none);
     colB.hidden = none;
-    hist.classList.toggle("solo", none);
+    hist.classList.add("solo");
     if (none) {
       const p = el("div", "empty-state");
       p.append(el("b", "", purpose.length ? t("No requests match these filters.") : day ? t("Nothing on {day}", { day: dayName(day) }) : t("No requests since magpie started")),
@@ -3639,7 +3647,6 @@ function routingPage(part) {
     off.textContent = msg;
     off.hidden = !msg;
     for (const e of [top, stage, foot, log]) e.hidden = !!msg;
-    more.hidden = !!msg;
   }
 
   function empty() {
@@ -3666,6 +3673,8 @@ function routingPage(part) {
     list.replaceChildren(el("li", "idle", t(purpose.length || day ? "No requests match these filters." : "No request yet")));
     say(t("Every request an agent sends to magpie shows up here, routed for real."));
     log.hidden = true;
+    ctxKey = "";
+    ctxBox.replaceChildren();
     renderHist(); // none live, but the days the history keeps are still there to look at
     layout();
   }
@@ -3863,10 +3872,111 @@ function routingPage(part) {
   const gOffBox = el("div", "list rt-goffbox");
   gOffBox.append(el("div", "rt-goffwhy", t("Routing groups are off in Plugins › Built-in: the groups magpie finds, one model several providers serve, still route, but your own can't be made or changed here.")), gOn);
   gOff.append(el("div", "row-head", el("span", "label", t("Routing groups"))), gOffBox);
-  gsec.append(gHead, gFound, gNames, gList, gOff, pHead, pList);
-  // after the requests: a request picked in the list plays on the stage,
-  // so the list sits right under it
-  more.append(gsec);
+  gsec.append(gHead, gFound, gNames, gList, gOff);
+  const accountsPage = el("div", "rt-accounts-page");
+  accountsPage.append(colB, pHead, pList);
+  more.append(accountsPage, gsec);
+  hist.classList.add("solo");
+  const tabs = $("#rtTabs");
+  tabs.setAttribute("aria-label", t("Routing"));
+  const tools = el("div", "rt-view-tools");
+  const inspector = el("div", "rt-inspector");
+  inspector.hidden = true;
+  inspector.setAttribute("role", "dialog");
+  inspector.setAttribute("aria-labelledby", "rtInspectorTitle");
+  const inspectorHead = el("div", "rt-inspector-head");
+  const inspectorTitle = el("b");
+  inspectorTitle.id = "rtInspectorTitle";
+  const inspectorClose = el("button", "text");
+  inspectorClose.type = "button";
+  inspectorClose.dataset.t = "";
+  inspectorClose.dataset.en = "Close";
+  inspectorClose.textContent = t("Close");
+  const inspectorBody = el("div", "rt-inspector-body");
+  const panels = { requests: hist, context: ctxBox };
+  const panelNames = { requests: "Request log", context: "Context window" };
+  let inspectorKind = "", inspectorReturn = null;
+  inspectorHead.append(inspectorTitle, el("span", "grow"), inspectorClose);
+  inspector.append(inspectorHead, inspectorBody);
+  const panelHosts = {};
+  for (const [key, node] of Object.entries(panels)) {
+    const host = el("div");
+    host.hidden = true;
+    host.append(node);
+    panelHosts[key] = host;
+    inspectorBody.append(host);
+    const button = el("button", "text rt-inspect");
+    button.type = "button";
+    button.dataset.panel = key;
+    button.dataset.t = "";
+    button.dataset.en = panelNames[key];
+    button.textContent = t(panelNames[key]);
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-expanded", "false");
+    button.onclick = () => openInspector(key, button);
+    tools.append(button);
+  }
+  ctxBox.dataset.empty = t("No context window for this request");
+  box.before(tools);
+  more.after(inspector);
+  function closeInspector() {
+    inspector.hidden = true;
+    inspectorKind = "";
+    for (const button of tools.children) button.setAttribute("aria-expanded", "false");
+    inspectorReturn?.focus({ preventScroll: true });
+  }
+  function openInspector(key, anchor) {
+    inspectorReturn = anchor || tools.querySelector(`[data-panel="${key}"]`);
+    inspectorKind = key;
+    inspectorTitle.textContent = t(panelNames[key]);
+    for (const [name, host] of Object.entries(panelHosts)) host.hidden = name !== key;
+    for (const button of tools.children) button.setAttribute("aria-expanded", String(button.dataset.panel === key));
+    inspector.hidden = false;
+    inspectorBody.scrollTop = 0;
+    fitDays();
+    fitReqs();
+    inspectorClose.focus({ preventScroll: true });
+  }
+  inspectorClose.onclick = closeInspector;
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !inspector.hidden && $("#modal").hidden && !document.querySelector(".proto-menu")) {
+      e.preventDefault();
+      closeInspector();
+    }
+  });
+  function setRoutingTab(tab) {
+    if (!inspector.hidden) closeInspector();
+    for (const button of tabs.children) {
+      const selected = button.dataset.rtTab === tab;
+      button.classList.toggle("on", selected);
+      button.setAttribute("aria-selected", String(selected));
+      button.tabIndex = selected ? 0 : -1;
+    }
+    box.hidden = tools.hidden = tab !== "view";
+    accountsPage.hidden = tab !== "accounts";
+    gsec.hidden = tab !== "groups";
+    more.hidden = tab === "view";
+    if (tab === "view") requestAnimationFrame(() => layout());
+  }
+  for (const button of tabs.children) button.onclick = () => setRoutingTab(button.dataset.rtTab);
+  tabs.onkeydown = (e) => {
+    const buttons = [...tabs.children], index = buttons.indexOf(e.target);
+    const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: buttons.length - 1 }[e.key];
+    if (index < 0 || next === undefined) return;
+    e.preventDefault();
+    const button = buttons[(next + buttons.length) % buttons.length];
+    button.click();
+    button.focus({ preventScroll: true });
+  };
+  new MutationObserver(() => {
+    if ($("#view-routing").hidden && !inspector.hidden) closeInspector();
+  }).observe($("#view-routing"), { attributes: true, attributeFilter: ["hidden"] });
+  new MutationObserver(() => {
+    if (inspectorKind) inspectorTitle.textContent = t(panelNames[inspectorKind]);
+    ctxBox.dataset.empty = t("No context window for this request");
+    tabs.setAttribute("aria-label", t("Routing"));
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
+  setRoutingTab("view");
   const ROUTE_OPTS = [["", "Smart"], ["order", "In order"], ["rotate", "In turn"], ["usage", "Least used"], ["pace", "Weekly pace"], ["free", "Free first"]];
   // a group may also be routed by hand: every request to the member the
   // user picks on its card (provider.Manual, #317) — a provider's keys can't
@@ -3971,7 +4081,7 @@ function routingPage(part) {
     groups = next;
     if (pBox) renderPanel();
     if (headOf) header(...headOf);
-    if (!gEdit && !gsec.contains(document.activeElement)) renderGroups(); // not under someone's hands
+    if (!gEdit && !gsec.contains(document.activeElement) && !accountsPage.contains(document.activeElement)) renderGroups(); // not under someone's hands
   }
   const groupDirty = () => !!gEdit && gEdit.was !== undefined &&
     (JSON.stringify(gEdit.draft) !== gEdit.was || !!gsec.querySelector(".rt-patadd input")?.value.trim());
@@ -5831,6 +5941,7 @@ function routingPage(part) {
     if (!groups) await loadGroups();
     if (!groups) return;
     if (groupDirty() && !(await confirmDiscard())) return;
+    setRoutingTab("groups");
     gEdit = { id: "", draft: { name: name || modelOf(id)?.name || id.split("/").pop(), members: [id], fast: [], routing: "", affinity: "", rules: [] } };
     renderGroups();
     const ed = gList.querySelector(".rt-gedit");
@@ -5842,6 +5953,7 @@ function routingPage(part) {
   // group too (mintonight, #944), which brings the editor into view.
   async function newGroup(ev) {
     if (groupDirty() && !(await confirmDiscard())) return;
+    setRoutingTab("groups");
     gSel = null;
     gEdit = { id: "", draft: { name: "", members: [], match: [], matched: [], fast: [], off: [], routing: "", affinity: "", rules: [] } };
     renderGroups();
@@ -5876,7 +5988,7 @@ function routingPage(part) {
   keepInView(rv, () => {
     const mid = rv.getBoundingClientRect().top + rv.clientHeight / 2;
     if ((gsec.contains(document.activeElement) || gsec.matches(":hover")) && gsec.offsetParent) return gsec;
-    return [gsec, hist].find((p) => p.offsetParent && p.getBoundingClientRect().top <= mid) || null;
+    return [gsec, accountsPage].find((p) => p.offsetParent && p.getBoundingClientRect().top <= mid) || null;
   });
   // the pointer coming onto the groups or off them changes the part kept,
   // so where the reader is is taken again, as their scroll would
@@ -6268,14 +6380,11 @@ function routingPage(part) {
   }
 
   new ResizeObserver(() => layout()).observe(stage);
-  // the list is as tall as leaves the stage in sight above it: the reader
-  // scrolls the list, not the page, and a request picked plays in view.
-  // Its top stays where it is as it is sized, so a row just clicked does too
   function fitReqs() {
     const v = $("#view-routing");
     if (v.hidden || !reqs.offsetParent) return;
-    const above = reqs.getBoundingClientRect().top - box.getBoundingClientRect().top;
-    const room = v.clientHeight - above - 28;
+    const above = reqs.getBoundingClientRect().top - inspector.getBoundingClientRect().top;
+    const room = parseFloat(getComputedStyle(inspector).maxHeight) - above - 28;
     const h = Math.round(Math.max(216, Math.min(420, room))) + "px";
     if (reqs.style.maxHeight !== h) reqs.style.maxHeight = h;
   }

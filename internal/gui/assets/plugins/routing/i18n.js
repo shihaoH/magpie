@@ -2,6 +2,8 @@
 // kernel adds them to i18n.js's (magpie.strings).
 magpie.strings({
   zh: {
+    "Request log": "请求日志",
+    "No context window for this request": "此请求暂无上下文窗口",
     "Filter, or type an agent's name…": "筛选，或输入 Agent 名称…",
     "the name its User-Agent begins with": "User-Agent 开头的名称",
     "heard from in the last 30 days": "近 30 天有请求",
@@ -536,6 +538,8 @@ magpie.strings({
     "{h} h {m} min": "{h} 小时 {m} 分钟",
   },
   "zh-TW": {
+    "Request log": "請求日誌",
+    "No context window for this request": "此請求暫無上下文視窗",
     "Filter, or type an agent's name…": "篩選，或輸入 Agent 名稱…",
     "the name its User-Agent begins with": "User-Agent 開頭的名稱",
     "heard from in the last 30 days": "近 30 天有請求",
@@ -1070,6 +1074,8 @@ magpie.strings({
     "{h} h {m} min": "{h} 小時 {m} 分鐘",
   },
   ja: {
+    "Request log": "リクエストログ",
+    "No context window for this request": "このリクエストのコンテキストウィンドウはありません",
     "Filter, or type an agent's name…": "絞り込み、またはエージェント名を入力…",
     "the name its User-Agent begins with": "User-Agent の先頭の名前",
     "heard from in the last 30 days": "過去 30 日にリクエストあり",
@@ -1604,6 +1610,8 @@ magpie.strings({
     "These routing groups will no longer be available to agents.": "これらのルーティンググループはエージェントから利用できなくなります。",
   },
   de: {
+    "Request log": "Anfrageprotokoll",
+    "No context window for this request": "Kein Kontextfenster für diese Anfrage",
     "Filter, or type an agent's name…": "Filtern oder Namen eines Agenten eingeben…",
     "the name its User-Agent begins with": "der Name, mit dem sein User-Agent beginnt",
     "heard from in the last 30 days": "in den letzten 30 Tagen gesehen",

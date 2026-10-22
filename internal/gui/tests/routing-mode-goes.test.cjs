@@ -83,8 +83,10 @@ async function open(engine, lang, scene, width, t) {
   await page.route("**/*", serve(lang, scene));
   await page.goto("http://magpie.test/?view=routing");
   const req = page.locator(".rt-req").first();
-  await req.waitFor();
+  await req.waitFor({ state: "attached" });
+  await page.locator('[data-panel="requests"]').click();
   if (await req.getAttribute("aria-pressed") !== "true") await req.click();
+  await page.keyboard.press("Escape");
   return { page, errors };
 }
 
@@ -95,11 +97,11 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         const { page, errors } = await open(engine, lang, "lone", width, t);
         await page.waitForFunction((s) => document.querySelector(".rt-mode")?.textContent.trim() === s, lone[lang]);
         // the groups are in, and the chip still names no routing
-        await page.locator(".rt-group").first().waitFor();
+        await page.locator(".rt-group").first().waitFor({ state: "attached" });
         await page.waitForTimeout(150);
         assert.equal(await page.locator(".rt-hub i").isHidden(), true, "the chip names no routing");
         assert.equal((await page.locator(".rt-mode").textContent()).trim(), lone[lang]);
-        await page.locator(".rt-prov").first().waitFor();
+        await page.locator(".rt-prov").first().waitFor({ state: "attached" });
         assert.equal((await page.locator(".rt-prov").first().innerText()).trim(), "Solo", "the heading names no routing");
         assert.equal(await page.locator(".rt-go").count(), 0);
         assert.deepEqual(errors, []);
@@ -115,7 +117,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         assert.notEqual((await page.locator(".rt-mode").textContent()).trim(), lone[lang]);
         // the heading names it too, the same way to it
         const head = page.locator(".rt-prov > span.rt-go");
-        await head.waitFor();
+        await head.waitFor({ state: "attached" });
         assert.equal((await head.textContent()).trim(), smart[lang]);
         assert.equal(await head.getAttribute("data-go"), "pool:relay");
 
@@ -124,13 +126,13 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         await pool.waitFor({ state: "attached" });
         const inView = () => pool.evaluate((p) => { const v = document.querySelector("#view-routing").getBoundingClientRect(), r = p.getBoundingClientRect();
           return r.top >= v.top && r.bottom <= v.bottom; });
-        assert.equal(await inView(), false, "the pool starts out of view");
-        const top = await view.evaluate((v) => v.scrollTop);
+        assert.equal(await pool.isVisible(), false, "the pool starts in the accounts tab");
+        const viewTab = page.locator(width >= 1024 ? '.nav-s[data-of="rtTabView"]' : '#rtTabView');
 
         // a click takes the reader there: in view, marked, its routing focused
         await chip.click();
         await page.waitForFunction(() => document.querySelector('.rt-pool[data-provider="relay"]')?.classList.contains("rt-found"));
-        assert.ok(await view.evaluate((v) => v.scrollTop) > top, "the view went down to it");
+        assert.equal(await page.locator('#rtTabAccounts').getAttribute('aria-selected'), 'true');
         assert.equal(await inView(), true);
         assert.equal(await page.evaluate(() => document.activeElement?.closest(".rt-pool")?.dataset.provider), "relay");
         assert.equal(await page.evaluate(() => document.activeElement?.classList.contains("on")), true);
@@ -139,8 +141,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         // a press held over the head's redraw is still a click (#2151): the
         // chip is not written over under the pointer, which WebKit takes
         // for a press that never ends where it began
-        await view.evaluate((v) => { v.scrollTop = 0; });
+        await viewTab.click();
         await pool.evaluate((p) => p.classList.remove("rt-found"));
+        await chip.click({ trial: true });
         const box = await chip.boundingBox();
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await page.mouse.down();
@@ -151,10 +154,10 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         assert.equal(await inView(), true);
 
         // the keyboard does the same from the top
-        await view.evaluate((v) => { v.scrollTop = 0; });
+        await viewTab.click();
         await chip.focus();
         await page.keyboard.press("Enter");
-        await page.waitForFunction(() => document.querySelector("#view-routing").scrollTop > 0);
+        await page.waitForFunction(() => document.querySelector("#rtTabAccounts").getAttribute("aria-selected") === "true");
         assert.equal(await inView(), true);
         // nothing is drawn wider than the window
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

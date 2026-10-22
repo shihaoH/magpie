@@ -118,6 +118,19 @@ same way.
 [`reasoning-speed.test.cjs`](../../internal/gui/tests/reasoning-speed.test.cjs)
 cover the calculation, cache round trip, translated streams and both pages.
 
+### Routing navigation
+
+Routing has three tabs, also shown under its sidebar entry: Routing view,
+Accounts and keys, and Routing groups. The view keeps the live stage with
+the routing log directly below it. Request log and Context window open in
+a floating inspector, retaining request selection, filters and context
+interactions; Escape or Close returns focus to its launcher. Switching tabs
+or leaving Routing closes it. Links from other pages select the request in
+the view, opening the inspector only for context links. New group opens Routing groups.
+Accounts and keys contains both the request account summary and provider
+pool routing controls. The group editor remains mounted across tab switches.
+See `routing-navigation.test.cjs`.
+
 ### Routing purpose filter
 
 The request heading's purpose menu in [`plugins/routing/client.js`](../../internal/gui/assets/plugins/routing/client.js)
